@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Spam-Aware Messenger</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* === 1. Base Styles & Layout (New Theme) === */
+        :root {
+            --bg-light: #f0f2f5; 
+            --card-bg: #ffffff; 
+            --primary-accent: #1565c0; /* Darker Blue Primary */
+            --text-dark: #111b21; 
+            --text-secondary: #667781; 
+            --border-light: #e9edef; 
+            --input-bg: #f0f2f5; 
+            --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.1); 
+            --shadow-dark: 0 4px 12px rgba(0, 0, 0, 0.2);
+            --sent-bubble-bg: #e3f2fd; /* Light Sky Blue for sent */
+            --received-bubble-bg: #ffffff; 
+            
+            --accent-sky-blue: #03a9f4;
+            --accent-orange: #ff9800;
+            --accent-pink: #e91e63;
+            --accent-purple: #9c27b0;
+            --accent-red: #f44336;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-light); 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #app-container {
+            display: flex;
+            width: 65%; 
+            height: 90%; 
+            max-width: 900px;
+            margin: auto;
+            border-radius: 12px; 
+            box-shadow: var(--shadow-dark); 
+            background-color: var(--card-bg);
+            overflow: hidden;
+        }
+        
+        /* === 2. Contacts Panel (Left Column) === */
+        #contacts-panel {
+            flex: 0 0 350px; 
+            border-right: 1px solid var(--border-light);
+            background-color: var(--card-bg);
+            display: flex;
+            flex-direction: column;
+        }
+        #contacts-header {
+            padding: 15px;
+            background-color: var(--primary-accent); 
+            color: white;
+            font-size: 1.2em;
+            font-weight: 600; 
+            border-radius: 12px 0 0 0; 
+        }
+        #chat-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto; 
+        }
+        .contact-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px; 
+            border-bottom: 1px solid var(--border-light);
+            cursor: pointer;
+        }
+        .contact-item:hover {
+            background-color: var(--input-bg);
+        }
+        .contact-item.active {
+            background-color: var(--input-bg);
+            border-left: 4px solid var(--primary-accent); 
+            padding-left: 11px;
+        }
+        .contact-photo {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 15px;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .contact-name {
+            font-weight: bold;
+            color: var(--text-dark);
+        }
+        .contact-last-message {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* === 3. Chat Window (Right Column) === */
+        #chat-window {
+            flex-grow: 1; 
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-light); 
+            min-height: 0; 
+        }
+        #chat-header {
+            padding: 15px;
+            background-color: var(--primary-accent); 
+            color: white;
+            font-size: 1.2em;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            box-shadow: var(--shadow-light); 
+            position: relative;
+            justify-content: space-between;
+        }
+        #messages-area {
+            flex-grow: 1; 
+            overflow-y: auto;
+            padding: 20px;
+            background: linear-gradient(135deg, 
+                        #f0f8ff 0%, 
+                        #ffe0f0 40%, 
+                        #fff8e1 100%); 
+            background-attachment: fixed;
+            background-size: cover; 
+            background-position: center;
+        }
+        #messages {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        /* Message Styling */
+        .message-bubble {
+            max-width: 75%; 
+            padding: 10px 15px;
+            border-radius: 10px; 
+            margin-bottom: 10px; 
+            box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1); 
+            color: var(--text-dark); 
+            line-height: 1.4; 
+            position: relative; 
+            min-width: 60px; 
+            padding-right: 40px; 
+        }
+        .sent {
+            background-color: var(--sent-bubble-bg); 
+            margin-left: auto;
+            text-align: left; 
+            border-bottom-right-radius: 3px; 
+        }
+        .received {
+            background-color: var(--received-bubble-bg); 
+            margin-right: auto;
+            text-align: left;
+            border-bottom-left-radius: 3px; 
+        }
+        
+        /* Timestamp and Ticks */
+        .message-time {
+            display: block;
+            font-size: 0.75em; 
+            color: var(--text-secondary); 
+            margin-top: 5px;
+            float: right;
+            clear: both;
+            padding-left: 10px;
+        }
+        .message-status {
+            font-size: 0.85em; 
+            color: var(--primary-accent); 
+            position: absolute; 
+            bottom: 5px;
+            right: 8px;
+        }
+
+        /* RECEIVER WARNING STYLING (The final visible alert) */
+        .receiver-warning-box {
+            background-color: #ffc107; /* Yellow */
+            color: #333; /* Dark text */
+            padding: 5px 10px;
+            margin-top: 5px;
+            border-radius: 5px;
+            font-weight: 600;
+            font-size: 0.8em;
+            display: block;
+        }
+
+        /* --- Input Form & Chatbot Indicator === */
+        #form {
+            padding: 10px 15px; 
+            background-color: var(--card-bg);
+            border-top: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+        #input {
+            flex-grow: 1;
+            padding: 12px 18px; 
+            border: none; 
+            border-radius: 25px; 
+            margin-right: 10px;
+            background-color: var(--input-bg); 
+            font-size: 1em;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); 
+        }
+        #form > button {
+            background-color: var(--primary-accent); 
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+            box-shadow: var(--shadow-light);
+        }
+
+        /* Chatbot Indicator Styling */
+        #chatbot-indicator {
+            position: absolute;
+            right: 65px; 
+            bottom: 55px; 
+            width: 30px;
+            height: 30px;
+            background-color: var(--text-secondary); 
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2em; 
+            color: #fff;
+            box-shadow: var(--shadow-light); 
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        #chatbot-indicator.active {
+            background-color: var(--accent-orange); 
+            transform: translateY(-5px); 
+        }
+        #chatbot-indicator.active::after {
+            content: '';
+            position: absolute;
+            top: 0px; 
+            right: 0px;
+            width: 10px;
+            height: 10px;
+            background-color: var(--accent-pink); 
+            border-radius: 50%;
+            border: 2px solid var(--card-bg); 
+            z-index: 11;
+        }
+
+        /* --- MODAL STYLING (Hidden) --- */
+        #warning-modal-overlay {
+            display: none; 
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        
+        <div id="contacts-panel">
+            <div id="contacts-header">Contacts</div>
+            <ul id="chat-list">
+                <li class="contact-item" data-contact-type="unknown">
+                    <div class="contact-photo" style="background-color: var(--accent-orange);"></div>
+                    <div class="contact-content">
+                        <div class="contact-name">7396273145 (Unknown)</div>
+                        <div class="contact-last-message">New message detected. Filter active.</div>
+                    </div>
+                </li>
+                <li class="contact-item" data-contact-type="saved"> 
+                    <div class="contact-photo" style="background-color: var(--accent-pink);"></div>
+                    <div class="contact-content">
+                        <div class="contact-name">Mom</div>
+                        <div class="contact-last-message">Don't forget to call your mother!</div>
+                    </div>
+                </li>
+                <li class="contact-item" data-contact-type="saved"> 
+                    <div class="contact-photo" style="background-color: var(--accent-sky-blue);"></div>
+                    <div class="contact-content">
+                        <div class="contact-name">Bestie</div>
+                        <div class="contact-last-message">Want to grab dinner tonight?</div>
+                    </div>
+                </li>
+                <li class="contact-item" data-contact-type="saved"> 
+                    <div class="contact-photo" style="background-color: var(--accent-purple);"></div>
+                    <div class="contact-content">
+                        <div class="contact-name">Big Boss</div>
+                        <div class="contact-last-message">Hey, just checking in on the project status.</div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+        <div id="chat-window">
+            <div id="chat-header">
+                <div id="menu-icon-container">
+                    <div id="menu-icon">⋮</div>
+                    
+                    <ul id="dropdown-menu" style="display: none;">
+                        <li data-action="media">🖼️ Media, Links, and Docs</li>
+                        <li data-action="mute">🔇 Mute Notifications</li>
+                        <li data-action="add">➕ Add to Contacts</li>
+                        <li data-action="block">🚫 Block Contact</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div id="messages-area">
+    <div id="chatbotWarning_receiver"></div>   <!-- INSERTED HERE -->
+    <ul id="messages"></ul>
+</div>
+
+            
+            <form id="form">
+                <input id="input" autocomplete="off" placeholder="Type a message..." />
+                <div id="chatbot-indicator">🤖</div> 
+                <button title="Send">▶</button>
+            </form>
+        </div>
+        
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+    <script>
+        // --- CLIENT-SIDE JAVASCRIPT LOGIC ---
+        // Replace the old 'const socket = io();' with this:
+        let socket;
+            try {
+             socket = io(); 
+             socket.on('chat message', function(data) {
+    console.log("Message received from server:", data);
+
+    const item = document.createElement('li');
+    const messageBubble = document.createElement('div');
+    
+    // 1. Set the text
+    messageBubble.innerHTML = `${data.text}`;
+    messageBubble.classList.add('message-bubble');
+
+    // 2. LOGIC: Is it from ME or SOMEONE ELSE?
+    // If the ID matches ours, it's a 'sent' bubble (right side)
+    // If it doesn't match, it's a 'received' bubble (left side)
+    if (data.user === userId || data.user === socket.id) {
+        messageBubble.classList.add('sent');
+    } else {
+        messageBubble.classList.add('received');
+        
+        // --- SPAM WARNING FOR RECEIVER ---
+        // If the server flagged this as spam, add the yellow warning box
+        if (data.is_spam) {
+            const warning = document.createElement('div');
+            warning.classList.add('receiver-warning-box');
+            warning.innerHTML = "⚠️ Warning: This message was flagged as potential spam.";
+            messageBubble.appendChild(warning);
+            messageBubble.style.border = "2px solid #ffc107";
+        }
+    }
+
+    // 3. Add Timestamp
+    const timeStamp = document.createElement('span');
+    timeStamp.classList.add('message-time');
+    timeStamp.textContent = data.time || new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    messageBubble.appendChild(timeStamp);
+
+    item.appendChild(messageBubble);
+    messages.appendChild(item);
+    
+    scrollToBottom();
+});
+} catch (err) {
+    console.warn("Socket.io not found, running in UI-only mode.");
+    socket = { emit: () => {}, on: () => {} }; // Dummy object to prevent crashes
+}
+       
+        const form = document.getElementById('form');
+        const input = document.getElementById('input');
+        const messages = document.getElementById('messages');
+        const contactsPanel = document.getElementById('contacts-panel');
+        const chatHeader = document.getElementById('chat-header');
+        const chatWindow = document.getElementById('chat-window');
+        const chatbotIndicator = document.getElementById('chatbot-indicator');
+        const userId = 'MyClient'; 
+        
+        // Menu Elements
+        const menuIconContainer = document.getElementById('menu-icon-container');
+        const dropdownMenu = document.getElementById('dropdown-menu');
+
+        let pendingSpamMessageOriginal = null;
+        let currentChatContact = null;
+        let currentContactType = 'unknown'; 
+
+        // --- HELPER FUNCTIONS ---
+
+        function getColor(name) {
+            const accentColors = [
+                'var(--accent-sky-blue)', 'var(--accent-orange)', 'var(--accent-pink)',
+                'var(--accent-purple)', 'var(--accent-red)'
+            ];
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const index = Math.abs(hash) % accentColors.length;
+            return accentColors[index];
+        }
+
+        function scrollToBottom() {
+            const messagesArea = document.getElementById('messages-area');
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        // Function to populate initials in the contact list
+        function initializeContactInitials() {
+            const contactItems = document.querySelectorAll('.contact-item');
+            
+            contactItems.forEach(item => {
+                const photoDiv = item.querySelector('.contact-photo');
+                const name = item.querySelector('.contact-name').textContent.trim();
+                
+                if (name) {
+                    let initials = '';
+                    const nameParts = name.split(' ');
+                    
+                    if (nameParts.length > 1) {
+                        initials = nameParts[0].charAt(0).toUpperCase() + nameParts[1].charAt(0).toUpperCase();
+                    } else {
+                        initials = nameParts[0].charAt(0).toUpperCase();
+                    }
+                    
+                    photoDiv.textContent = initials;
+                    
+                    const color = getColor(name);
+                    photoDiv.style.backgroundColor = color;
+                }
+            });
+        }
+        
+        // --- MAIN ACTION FUNCTION ---
+
+        function openChat(contactName, contactType) {
+            // 1. Update the chat header (Excluding the menu icon)
+            let headerInitials = '';
+            const parts = contactName.split(' ');
+            if (parts.length > 1) {
+                headerInitials = parts[0].charAt(0).toUpperCase() + parts[1].charAt(0).toUpperCase();
+            } else {
+                headerInitials = contactName.charAt(0).toUpperCase();
+            }
+            
+            chatHeader.innerHTML = 
+                `<div style="display:flex; align-items:center;">
+                    <div class="contact-photo" style="background-color: ${getColor(contactName)}; width: 30px; height: 30px; margin-right: 10px;">${headerInitials}</div>${contactName}
+                </div>` 
+                + chatHeader.innerHTML.split('</div>')[chatHeader.innerHTML.split('</div>').length - 1]; 
+
+            // 2. Clear previous messages & set status
+            messages.innerHTML = ''; 
+            currentChatContact = contactName;
+            currentContactType = contactType;
+            
+            // 3. Update the chatbot indicator visual state
+            if (contactType === 'unknown') {
+                chatbotIndicator.classList.add('active'); 
+                chatbotIndicator.title = "Chatbot is ACTIVE for this unknown contact.";
+            } else {
+                chatbotIndicator.classList.remove('active'); 
+                chatbotIndicator.title = "Chatbot is INACTIVE for this saved contact.";
+            }
+
+            scrollToBottom();
+        }
+
+
+        // --- 1. CORE EVENT LISTENERS ---
+
+        // Send Message Logic
+      // --- UPDATED SEND MESSAGE LOGIC WITH SPAM CHECK ---
+form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const msg = input.value.trim();
+
+    if (msg && currentChatContact) {
+        console.log("Attempting to check spam for:", msg);
+
+        // 1. Check for Spam FIRST
+        try {
+            const response = await fetch('http://127.0.0.1:5001/check_spam', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: msg })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log("Spam Result:", result);
+
+                if (result.analysis && result.analysis.is_spam_risk) {
+                    if (!confirm("⚠️ Spam Alert! Send anyway?")) {
+                        input.value = '';
+                        return;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Spam API offline, sending anyway...");
+        }
+
+        // 2. THE SENDING PART (Crucial)
+        console.log("Sending message to socket...");
+        
+        // If you are testing locally without server.js, 
+        // manually add the bubble to the screen so you can see it:
+        const data = { text: msg, user: userId, time: new Date().toLocaleTimeString() };
+        displayMessage(data); 
+
+        // Actual server send
+        if (typeof socket !== 'undefined' && socket.emit) {
+            socket.emit('chat message', { text: msg, contactType: currentContactType,is_spam:result.analysis.is_spam_risk});
+        }
+
+        input.value = '';
+        scrollToBottom();
+    }
+});
+
+// Helper to show message on screen even if socket fails
+function displayMessage(data) {
+    const item = document.createElement('li');
+    const bubble = document.createElement('div');
+    bubble.classList.add('message-bubble', 'sent');
+    bubble.innerHTML = `${data.text}<span class="message-time">${data.time}</span>`;
+    item.appendChild(bubble);
+    messages.appendChild(item);
+}
+        // Add Click Listeners to Contacts (CRITICAL FIX: Attaches opening mechanism)
+        function attachContactListeners() {
+            contactsPanel.querySelectorAll('.contact-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    contactsPanel.querySelectorAll('.contact-item').forEach(i => i.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    const name = this.querySelector('.contact-name').textContent.trim();
+                    const type = item.getAttribute('data-contact-type');
+                    openChat(name, type);
+                });
+            });
+        }
+
+
+        // --- INITIALIZATION ON LOAD ---
+
+        window.onload = () => {
+             // CALL INITIALIZATION FUNCTIONS (ORDER IS CRUCIAL)
+             initializeContactInitials();
+             attachContactListeners(); // <-- FIX: Attaches click events after HTML loads
+             
+             const firstContactItem = document.querySelector('.contact-item');
+             firstContactItem.classList.add('active');
+             const firstContactName = firstContactItem.querySelector('.contact-name').textContent.trim();
+             const firstContactType = firstContactItem.getAttribute('data-contact-type');
+             
+             openChat(firstContactName, firstContactType);
+             
+             document.getElementById('contacts-header').textContent = "My User ID: " + userId;
+        };
+    </script>
+</body>
+</html>
